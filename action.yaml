@@ -1,0 +1,44 @@
+---
+name: 'Vagrant-VirtualBox-with-repos-Vagrantfile'
+description: 'Run CI in VirtualBox for GitHub Actions'
+inputs:
+  run:
+    description: 'the commands to run in vm'
+    required: true
+branding:
+  icon: 'activity'
+  color: 'green'
+
+runs:
+  using: 'composite'
+  steps:
+    - run: |
+        run() {
+          printf "\033[0;35m==>\033[0m \033[0;32m%b\n\033[0m" "$*"
+          $@
+        }
+
+        run pwd
+        run ls
+        echo 'set -e' >> shell.sh
+        export -p | grep 'GITHUB_' >> shell.sh
+        echo "cd /home/vagrant/${GITHUB_REPOSITORY}" >> shell.sh
+        cat >> shell.sh <<'EOF'
+        run() {
+          printf "\033[0;35m==>\033[0m \033[0;32m%b\n\033[0m" "$*"
+          $@
+        }
+
+        ${{inputs.run}}
+        EOF
+
+        run echo ${GITHUB_WORKSPACE}
+
+        export NEWCONFIG="config.vm.synced_folder \"${GITHUB_WORKSPACE}\", \"\/home\/vagrant\/${GITHUB_REPOSITORY}\", type: \"rsync\""
+        sed -i -e "s|config.vm.synced_folder.*|$NEWCONFIG|g" Vagrantfile
+
+        run cat Vagrantfile
+        run cat shell.sh
+
+        run vagrant up --provision
+      shell: bash
